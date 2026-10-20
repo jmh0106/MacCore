@@ -1,0 +1,34 @@
+# macOS and Xcode user state
+.DS_Store
+xcuserdata/
+*.xcuserstate
+
+# Build output, captures, and release packages
+.build/
+build/
+DerivedData/
+dist/
+*.app/
+*.dSYM/
+*.xcarchive/
+*.dmg
+*.pkg
+*.zip
+*.log
+.build-log.txt
+
+# Local configuration and signing material
+*.local.xcconfig
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.cer
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+
+# Private planning notes
+/MacCore_앱_기획초안.txt
