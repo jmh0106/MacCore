@@ -1,0 +1,4 @@
+// Public builds use ad-hoc signing; keep a stable local identity for development.
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+#include? "Signing.local.xcconfig"

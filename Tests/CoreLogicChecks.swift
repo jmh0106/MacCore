@@ -1,0 +1,135 @@
+import Foundation
+
+@main enum CoreLogicChecks {
+    static func main() {
+        assert(AICompletionClassifier.provider(appName: "Codex", bundleID: "com.openai.codex", title: "Task completed", detail: "") == "Codex")
+        assert(AICompletionClassifier.provider(appName: "Terminal", bundleID: "com.apple.Terminal", title: "Claude Code", detail: "작업을 완료했습니다") == "Claude Code")
+        assert(AICompletionClassifier.provider(appName: "Antigravity", bundleID: nil, title: "Agent completed", detail: "") == "Antigravity")
+        assert(AICompletionClassifier.provider(appName: "Codex", bundleID: nil, title: "새 메시지", detail: "") == nil)
+        assert(AICompletionClassifier.provider(appName: "Messages", bundleID: "com.apple.MobileSMS", title: "Task completed", detail: "") == nil)
+        assert(AICompletionClassifier.normalizedProvider("codex") == "Codex")
+        assert(AICompletionClassifier.normalizedProvider("unknown") == nil)
+
+        var timer = Countdown()
+        timer.start(seconds: 60, at: 100)
+        assert(timer.remaining(at: 115) == 45)
+        timer.pause(at: 115)
+        assert(!timer.isRunning && timer.remaining(at: 500) == 45)
+        timer.resume(at: 500)
+        assert(timer.remaining(at: 540) == 5)
+        assert(timer.finishIfNeeded(at: 545))
+        assert(!timer.finishIfNeeded(at: 546), "Completion must fire only once")
+        assert(timer.remaining(at: 600) == 0)
+        timer.reset()
+        assert(timer.remaining(at: 700) == 60)
+        timer.start(seconds: -.infinity, at: 800)
+        assert(!timer.isRunning)
+        assert(Countdown.display(59.1) == "01:00")
+        assert(Countdown.display(3601) == "1:00:01")
+        assert(Countdown.display(-1) == "00:00")
+        assert(Countdown.display(.nan) == "00:00")
+        assert(Countdown.display(.infinity) == "00:00")
+        assert(Countdown.display(.greatestFiniteMagnitude) == "596523:14:07")
+        timer.restore(duration: 600, remaining: 200, running: true, at: 1000)
+        assert(timer.duration == 600 && timer.remaining(at: 1100) == 100)
+        timer.restore(duration: 600, remaining: 200, running: false, at: 1000)
+        assert(!timer.isRunning && timer.remaining(at: 5000) == 200)
+        timer.restore(duration: 600, remaining: -10, running: true, at: 1000)
+        assert(!timer.isRunning && timer.remaining(at: 1000) == 0)
+        timer.restore(duration: .nan, remaining: 200, running: true, at: 1000)
+        assert(timer.duration == 600)
+
+        let firstBreak = PomodoroCycle.next(isOnBreak: false, completedSessions: 0, sessionCount: 2)
+        assert(PomodoroCycle.focusDuration(minutes: 45) == 45 * 60)
+        assert(PomodoroCycle.focusDuration(minutes: 0) == 60 && PomodoroCycle.focusDuration(minutes: 181) == 180 * 60)
+        assert(firstBreak.isOnBreak && firstBreak.completedSessions == 1 && !firstBreak.finished)
+        let nextFocus = PomodoroCycle.next(isOnBreak: true, completedSessions: firstBreak.completedSessions, sessionCount: 2)
+        assert(!nextFocus.isOnBreak && nextFocus.completedSessions == 1 && !nextFocus.finished)
+        let finalSession = PomodoroCycle.next(isOnBreak: false, completedSessions: nextFocus.completedSessions, sessionCount: 2)
+        assert(finalSession.completedSessions == 2 && finalSession.finished,
+               "Pomodoro should finish after the selected number of focus sessions")
+        let onlySession = PomodoroCycle.next(isOnBreak: false, completedSessions: 0, sessionCount: 1)
+        assert(onlySession.completedSessions == 1 && onlySession.finished)
+
+        assert(!ClipboardPolicy.mayRecord(source: "com.password.app", excludedApps: " com.password.app \ncom.other", types: ["public.utf8-plain-text"]))
+        assert(!ClipboardPolicy.mayRecord(source: "com.editor", excludedApps: "", types: ["public.utf8-plain-text", "org.nspasteboard.ConcealedType"]))
+        assert(!ClipboardPolicy.mayRecord(source: nil, excludedApps: "", types: ["org.nspasteboard.TransientType"]))
+        assert(ClipboardPolicy.mayRecord(source: "com.editor", excludedApps: "com.password", types: ["public.utf8-plain-text"]))
+
+        let screen = CGRect(x: -1920, y: -200, width: 1920, height: 1080)
+        let visible = CGRect(x: -1920, y: -200, width: 1920, height: 1055)
+        let dot = OverlayLayout.frame(in: screen, visible: visible, size: CGSize(width: 44, height: 25))
+        let panel = OverlayLayout.frame(in: screen, visible: visible, size: CGSize(width: 380, height: 360))
+        assert(dot.midX == panel.midX && dot.maxY == panel.maxY, "Dot must remain inside the panel when opening")
+        assert(dot.maxY == screen.maxY && screen.contains(dot) && screen.contains(panel), "Dot belongs in the menu bar")
+        assert(OverlayLayout.menuBarHeight(screen: screen, visible: visible) == 25)
+        for step in 0...20 {
+            let fraction = CGFloat(step) / 20
+            let size = CGSize(width: 16 + 364 * fraction, height: 16 + 364 * fraction)
+            let surface = OverlayLayout.surfaceFrame(canvasWidth: 380, size: size, topInset: 4 * (1 - fraction))
+            assert(surface.midX == 190 && abs(surface.minY - 4 * (1 - fraction)) < 0.001,
+                   "Every animation frame must grow from the same top anchor, not from the center")
+        }
+        let small = CGRect(x: 0, y: 0, width: 320, height: 400)
+        assert(small.contains(OverlayLayout.frame(in: small, visible: small, size: CGSize(width: 380, height: 440))))
+        let anchor = CGRect(x: -120, y: screen.maxY - 25, width: 24, height: 25)
+        let menu = OverlayLayout.menuPanelFrame(anchor: anchor, visible: visible, size: CGSize(width: 340, height: 424))
+        assert(visible.contains(menu) && menu.maxY < anchor.minY, "Menu header must stay below the menu bar and on screen")
+        let corner = CGRect(x: 310, y: 390, width: 24, height: 24)
+        let shortMenu = OverlayLayout.menuPanelFrame(anchor: corner, visible: small, size: CGSize(width: 340, height: 500))
+        assert(small.contains(shortMenu), "A short display must not clip the menu panel")
+        assert(shortMenu.maxY <= corner.minY - 6, "The panel must not grow above its anchor")
+        let dragZone = OverlayLayout.fileDragActivationFrame(screen: screen, compactWidth: 272)
+        assert(dragZone.contains(CGPoint(x: screen.midX + 140, y: screen.maxY - 150)),
+               "File drag activation must include the area below and beside the compact island")
+        assert(!dragZone.contains(CGPoint(x: screen.midX, y: screen.maxY - 200)))
+        assert(dragZone.midX == screen.midX && dragZone.maxY == screen.maxY,
+               "The drag zone must follow displays with negative coordinates")
+        var drag = FileDragActivation(changeCount: 10)
+        assert(!drag.update(changeCount: 10, mouseDown: true, hasFiles: true, nearIsland: true),
+               "A stale drag pasteboard must not turn an ordinary click into a file drag")
+        assert(!drag.update(changeCount: 11, mouseDown: true, hasFiles: true, nearIsland: false))
+        assert(drag.update(changeCount: 11, mouseDown: true, hasFiles: true, nearIsland: true),
+               "Entering the nearby area must activate even when mouse-down was never observed")
+        assert(!drag.update(changeCount: 11, mouseDown: true, hasFiles: true, nearIsland: true) && drag.active)
+        assert(!drag.update(changeCount: 11, mouseDown: true, hasFiles: true, nearIsland: false) && drag.active,
+               "The chooser must stay open while the file is still held")
+        assert(!drag.update(changeCount: 11, mouseDown: false, hasFiles: false, nearIsland: false) && !drag.active)
+        assert(!drag.update(changeCount: 12, mouseDown: true, hasFiles: false, nearIsland: true))
+        assert(drag.update(changeCount: 12, mouseDown: true, hasFiles: true, nearIsland: true),
+               "A later drag of the same file and delayed file metadata must still activate")
+        drag.dismiss(changeCount: 12)
+        assert(!drag.update(changeCount: 12, mouseDown: true, hasFiles: true, nearIsland: true),
+               "Explicit dismissal must not reopen during the same drag")
+        assert(!drag.update(changeCount: 12, mouseDown: false, hasFiles: false, nearIsland: false))
+        drag.dismiss(changeCount: 13)
+        assert(drag.update(changeCount: 13, mouseDown: true, hasFiles: true, nearIsland: true),
+               "Closing an ordinary tool on mouse-down must not consume the new drag")
+
+        assert(NowPlayingTiming.position(elapsed: 20, timestamp: 100, rate: 1, playing: true, duration: 240, at: 110) == 30)
+        assert(NowPlayingTiming.position(elapsed: 20, timestamp: 100, rate: 1, playing: false, duration: 240, at: 110) == 20)
+        assert(NowPlayingTiming.position(elapsed: 230, timestamp: 100, rate: 2, playing: true, duration: 240, at: 110) == 240)
+        assert(NowPlayingTiming.position(elapsed: 20, timestamp: nil, rate: nil, playing: true, duration: 0, at: 110) == 20)
+        assert(NowPlayingTiming.position(elapsed: .nan, timestamp: .infinity, rate: .nan, playing: true, duration: 0, at: 110) == 0)
+        assert(NowPlayingTiming.position(elapsed: 20, timestamp: 120, rate: 1, playing: true, duration: 240, at: 110) == 20)
+
+        let old = CPUSample(user: 100, system: 100, idle: 100, nice: 0)
+        let next = CPUSample(user: 125, system: 125, idle: 150, nice: 0)
+        assert(next.utilization(since: old) == 0.5)
+        assert(old.utilization(since: old) == nil)
+        let rolled = CPUSample(user: 4, system: 0, idle: 4, nice: 0)
+        let previous = CPUSample(user: UInt32.max, system: 0, idle: UInt32.max, nice: 0)
+        assert(rolled.utilization(since: previous) == 0.5)
+
+        let net1 = NetworkSample(received: 100, sent: 100, time: 1, interfaces: ["en0"])
+        let net2 = NetworkSample(received: 300, sent: 200, time: 3, interfaces: ["en0"])
+        assert(net2.rates(since: net1)?.down == 100)
+        assert(net2.rates(since: net1)?.up == 50)
+        let changed = NetworkSample(received: 300, sent: 200, time: 3, interfaces: ["en1"])
+        assert(changed.rates(since: net1) == nil)
+        let reset = NetworkSample(received: 0, sent: 0, time: 3, interfaces: ["en0"])
+        assert(reset.rates(since: net1) == nil)
+        assert(speedString(2048) == "2.0 KB/s")
+        print("PASS: AI completion matching, timer, clipboard privacy, menu-bar anchor, off-screen menu regression, now-playing position, CPU and network")
+    }
+}
