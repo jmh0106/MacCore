@@ -15,6 +15,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/jmh0106/MacCore/releases/tag/v0.1.0"><strong>MacCore 다운로드</strong></a> ·
   <a href="#미리보기">미리보기</a> ·
   <a href="#주요-기능">주요 기능</a> ·
   <a href="#설치">설치</a> ·
@@ -84,7 +85,9 @@
 
 **M칩 Mac · macOS 14 이상**을 대상으로 합니다. Intel Mac용 바이너리는 제공하지 않습니다.
 
-현재 **0.1.0 프리뷰**입니다. 패키지 릴리스가 게시되기 전에는 Xcode에서 직접 빌드해 사용할 수 있습니다.
+현재 **0.1.0 프리뷰**입니다. [Releases에서 DMG를 다운로드](https://github.com/jmh0106/MacCore/releases/tag/v0.1.0)한 뒤, 디스크 이미지를 열고 **MacCore를 Applications 폴더로 끌어 넣으세요**. Xcode 없이 사용할 수 있습니다. 업데이트할 때는 실행 중인 MacCore를 종료한 뒤 기존 앱을 교체하세요.
+
+배포본은 유료 Developer ID 서명·공증을 받지 않았습니다. 처음 실행 시 아래의 macOS 보안 안내를 확인하세요. macOS 14~26에서는 실기기 검증이 더 필요합니다.
 
 <details>
 <summary><strong>Xcode에서 직접 빌드하기</strong></summary>
@@ -101,9 +104,9 @@ SwiftUI + AppKit으로 만들었으며, 최초 빌드 시 [MediaRemoteAdapter](h
 </details>
 
 <details>
-<summary><strong>배포용 .app 파일을 받은 경우</strong></summary>
+<summary><strong>다운로드한 앱의 실행·보안 안내</strong></summary>
 
-1. 압축을 풀고 `MacCore.app`을 **응용 프로그램** 폴더로 옮깁니다.
+1. DMG 안의 `MacCore.app`을 **Applications(응용 프로그램)** 폴더로 옮깁니다.
 2. 앱을 실행하고 상단 중앙의 섬 또는 메뉴 막대 아이콘을 확인합니다.
 3. 필요한 기능만 설정에서 켭니다.
 

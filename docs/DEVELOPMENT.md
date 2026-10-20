@@ -13,6 +13,18 @@ xcodebuild -project MacCore.xcodeproj -scheme MacCore \
 
 기존 실행본을 정상 종료한 뒤 새 빌드를 실행하세요. MacCore는 한 번에 한 인스턴스만 실행하며, 다른 경로의 앱을 열어도 기존 실행본이 유지될 수 있습니다. 종료 안내에 임시 캡처가 보이면 먼저 필요한 이미지를 저장하세요.
 
+## 배포
+
+바이너리는 소스에 커밋하지 않고 GitHub Releases에 올립니다. 기본 배포 형식은 `MacCore-버전-arm64.dmg`이며 `MacCore.app`과 `/Applications` 바로가기를 넣습니다. 빌드 결과물·DMG·개인 서명 파일은 `.gitignore`에서 제외합니다.
+
+```sh
+xcodebuild -project MacCore.xcodeproj -scheme MacCore \
+  -configuration Release -derivedDataPath .build/DerivedData \
+  CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
+```
+
+현재 공개 배포본은 ad-hoc 서명으로, Developer ID 공증을 받은 앱이 아닙니다. 다른 Mac의 첫 실행 경고와 업데이트 후 권한 유지 여부를 별도로 확인해야 합니다. 개발 중에는 기존 로컬 서명 신원을 유지하세요.
+
 ## 코드 구성
 
 | 위치 | 역할 |
