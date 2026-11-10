@@ -1,4 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel><title>MacCore 업데이트</title><language>ko</language></channel>
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>MacCore</title>
+        <item>
+            <title>0.2.0</title>
+            <pubDate>Tue, 10 Nov 2026 15:56:59 +0900</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/jmh0106/MacCore/releases/download/v0.2.0/MacCore-0.2.0-arm64.dmg" length="2161310" type="application/octet-stream" sparkle:edSignature="Jc/wOcF7zND7Os009qnOm2m+lGg659QnU90RT+WvqjTHwUk6DbdwsoAof+ABF4EnldvMTEqJpifIF7NmjOZ+BA=="/>
+        </item>
+    </channel>
 </rss>
