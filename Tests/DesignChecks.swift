@@ -58,7 +58,7 @@ import SwiftUI
             NSBezierPath(ovalIn: rect.insetBy(dx: 50, dy: 20)).fill()
             return true
         }
-        model.clipboard = [ClipboardItem(payload: .image(image.tiffRepresentation!)), ClipboardItem(payload: .text("확인용 복사 기록"))]
+        model.clipboard = [ClipboardItem(payload: .image(image.tiffRepresentation!))!, ClipboardItem(payload: .text("확인용 복사 기록"))!]
         model.tab = .clipboard
         overlay.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.1))

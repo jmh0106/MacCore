@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A00000000000000000000020 /* MediaRemoteAdapter in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000021 /* MediaRemoteAdapter */; };
 		A00000000000000000000022 /* MediaRemoteAdapter in Embed Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000021 /* MediaRemoteAdapter */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A00000000000000000000031 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000033 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000020 /* MediaRemoteAdapter in Frameworks */,
+				A00000000000000000000031 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +104,7 @@
 			name = MacCore;
 			packageProductDependencies = (
 				A00000000000000000000021 /* MediaRemoteAdapter */,
+				A00000000000000000000033 /* Sparkle */,
 			);
 			productName = MacCore;
 			productReference = A00000000000000000000005 /* MacCore.app */;
@@ -127,6 +130,7 @@
 			mainGroup = A00000000000000000000002;
 			packageReferences = (
 				A00000000000000000000025 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */,
+				A00000000000000000000034 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A00000000000000000000004 /* Products */;
@@ -257,6 +261,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		A00000000000000000000034 /* XCRemoteSwiftPackageReference "Sparkle" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/sparkle-project/Sparkle.git"; requirement = {kind = exactVersion; version = 2.9.6; }; };
 		A00000000000000000000025 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ejbills/mediaremote-adapter.git";
@@ -268,6 +273,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A00000000000000000000033 /* Sparkle */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000034 /* XCRemoteSwiftPackageReference "Sparkle" */; productName = Sparkle; };
 		A00000000000000000000021 /* MediaRemoteAdapter */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A00000000000000000000025 /* XCRemoteSwiftPackageReference "mediaremote-adapter" */;

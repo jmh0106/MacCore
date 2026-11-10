@@ -4,7 +4,7 @@ MacCore는 Apple Silicon Mac을 위한 SwiftUI + AppKit 앱입니다. 사용자�
 
 ## 실행과 서명
 
-`MacCore.xcodeproj`를 열고 MacCore / My Mac을 선택합니다. 기본값은 ad-hoc 서명입니다. 고정된 개발 인증서를 사용하려면 `Config/Signing.local.xcconfig`에 본인의 `CODE_SIGN_IDENTITY`와 `DEVELOPMENT_TEAM`을 지정하세요. 이 로컬 파일은 Git에서 제외됩니다. 현재 설정은 arm64, macOS 14 이상을 대상으로 하며 Xcode 27에서 검증했습니다.
+`MacCore.xcodeproj`를 열고 MacCore / My Mac을 선택합니다. 기본값은 ad-hoc 서명입니다. 빌드와 업데이트 사이에 손쉬운 사용 권한을 유지하려면 `Config/Signing.local.xcconfig`에 유효한 서명 인증서의 `CODE_SIGN_IDENTITY`와 `DEVELOPMENT_TEAM`을 지정하세요. 이 로컬 파일은 Git에서 제외됩니다. 같은 번들 ID와 인증서로 계속 서명해야 권한이 유지됩니다. 현재 설정은 arm64, macOS 14 이상을 대상으로 하며 Xcode 27에서 검증했습니다.
 
 ```sh
 xcodebuild -project MacCore.xcodeproj -scheme MacCore \
@@ -15,15 +15,16 @@ xcodebuild -project MacCore.xcodeproj -scheme MacCore \
 
 ## 배포
 
+앱의 업데이트는 Sparkle을 사용합니다. `appcast.xml`은 공개 저장소의 main 브랜치에서 제공하며, 새 버전마다 `CFBundleVersion`을 증가시키고 동일한 앱 서명으로 빌드하세요. Sparkle 배포판의 `generate_appcast --account MacCore --download-url-prefix <해당 GitHub Release 다운로드 URL> <업데이트 파일 폴더>`로 서명된 피드를 생성하고 업데이트 파일을 GitHub Release에 올린 뒤 `appcast.xml`을 게시합니다. Sparkle 개인 키는 로그인 키체인에 있으며 안전하게 백업해야 합니다. 키가 없으면 기존 설치본에 새 업데이트를 제공하지 못할 수 있습니다.
+
 바이너리는 소스에 커밋하지 않고 GitHub Releases에 올립니다. 기본 배포 형식은 `MacCore-버전-arm64.dmg`이며 `MacCore.app`과 `/Applications` 바로가기를 넣습니다. 빌드 결과물·DMG·개인 서명 파일은 `.gitignore`에서 제외합니다.
 
 ```sh
 xcodebuild -project MacCore.xcodeproj -scheme MacCore \
-  -configuration Release -derivedDataPath .build/DerivedData \
-  CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build
+  -configuration Release -derivedDataPath .build/DerivedData build
 ```
 
-현재 공개 배포본은 ad-hoc 서명으로, Developer ID 공증을 받은 앱이 아닙니다. 다른 Mac의 첫 실행 경고와 업데이트 후 권한 유지 여부를 별도로 확인해야 합니다. 개발 중에는 기존 로컬 서명 신원을 유지하세요.
+로컬 서명 설정이 있으면 Release도 그 인증서로 서명됩니다. ad-hoc 서명은 빌드마다 코드 식별자가 달라져 손쉬운 사용 권한을 다시 허용해야 할 수 있습니다. 같은 Apple Development 인증서로 서명하면 업데이트 방식과 관계없이 권한 식별자는 유지되지만, Developer ID 공증은 제공하지 않으므로 다른 Mac에서는 첫 실행을 수동 승인해야 할 수 있습니다. 대중에게 매끄럽게 배포하려면 Developer ID 서명과 공증이 필요합니다.
 
 ## 코드 구성
 

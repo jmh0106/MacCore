@@ -71,16 +71,16 @@ final class NotificationMonitor {
             object: nil, queue: .main) { [weak self] event in
                 guard let app = event.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                       app.bundleIdentifier == "com.apple.notificationcenterui" else { return }
-                MainActor.assumeIsolated { self?.attach(to: app) }
+                MainActor.assumeIsolated { self?.attach(to: app, suppressExisting: false) }
             }
         if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui").first {
-            attach(to: app)
+            attach(to: app, suppressExisting: true)
             return observer != nil
         }
         return true
     }
 
-    private func attach(to app: NSRunningApplication) {
+    private func attach(to app: NSRunningApplication, suppressExisting: Bool) {
         if let observer { CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes) }
         observer = nil
         application = nil
@@ -100,8 +100,9 @@ final class NotificationMonitor {
         guard registered.contains(.success) else { error = "이 macOS에서 알림 배너 변경을 감지하지 못했습니다."; return }
         observer = created
         application = element
-        visible = Set(notices().map(\.0))
+        visible = suppressExisting ? Set(notices().map(\.0)) : []
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(created), .commonModes)
+        if !suppressExisting { scheduleRead() }
     }
 
     private func scheduleRead() {

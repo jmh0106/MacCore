@@ -7,8 +7,10 @@
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>MacCore</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>0.2.0</string>
+    <key>CFBundleVersion</key><string>2</string>
+    <key>SUFeedURL</key><string>https://raw.githubusercontent.com/jmh0106/MacCore/main/appcast.xml</string>
+    <key>SUPublicEDKey</key><string>HAw2CIK6L6QEeByIzCeLkHML84oBpYR1e4uzQ64M97s=</string>
     <key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>

@@ -6,11 +6,10 @@ import UniformTypeIdentifiers
 import CryptoKit
 
 enum PanelTab: String, CaseIterable, Identifiable {
-    case overview = "상태", timer = "타이머", files = "파일", clipboard = "복사 기록", music = "음악"
+    case timer = "타이머", files = "파일", clipboard = "복사 기록", music = "음악"
     var id: String { rawValue }
     var symbol: String {
         switch self {
-        case .overview: "waveform.path.ecg"
         case .timer: "timer"
         case .files: "tray"
         case .clipboard: "clipboard"
@@ -31,15 +30,15 @@ struct TrayFile: Identifiable {
     var exists: Bool { FileManager.default.fileExists(atPath: url.path) }
 }
 
-struct ClipboardItem: Identifiable {
-    enum Payload { case text(String), image(Data), files([URL]) }
-    let id = UUID()
+struct ClipboardItem: Identifiable, Codable {
+    enum Payload: Codable { case text(String), textFile(URL, Int), image(Data), imageFile(URL, Int), files([URL]), filesFile(URL, Int) }
+    var id = UUID()
     var date = Date()
-    let payload: Payload
+    var payload: Payload
     let contentKey: Data
     var pinned = false
 
-    init(payload: Payload) {
+    init?(payload: Payload) {
         self.payload = payload
         var hash = SHA256()
         switch payload {
@@ -52,7 +51,8 @@ struct ClipboardItem: Identifiable {
             hash.update(data: Data(paths.joined(separator: "\0").utf8))
         case .image(let data):
             // Compare decoded pixels so PNG/TIFF copies of the same image share one record.
-            if let image = NSImage(data: data)?.cgImage(forProposedRect: nil, context: nil, hints: nil),
+            guard let decodedImage = NSImage(data: data) else { return nil }
+            if let image = decodedImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
                let space = CGColorSpace(name: CGColorSpace.sRGB),
                let bitmap = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8,
                                       bytesPerRow: image.width * 4, space: space,
@@ -68,30 +68,65 @@ struct ClipboardItem: Identifiable {
                 hash.update(data: Data("image:encoded:".utf8))
                 hash.update(data: data)
             }
+        case .imageFile, .textFile, .filesFile:
+            return nil
         }
         contentKey = Data(hash.finalize())
     }
     var title: String {
         switch payload {
-        case .text(let text): return String(text.prefix(160)).replacingOccurrences(of: "\n", with: " ")
-        case .image: return "복사한 이미지"
-        case .files(let urls): return urls.map(\.lastPathComponent).joined(separator: ", ")
+        case .text, .textFile: return String((text ?? "").prefix(160)).replacingOccurrences(of: "\n", with: " ")
+        case .image, .imageFile: return "복사한 이미지"
+        case .files, .filesFile: return (files ?? []).map(\.lastPathComponent).joined(separator: ", ")
+        }
+    }
+    var imageURL: URL? {
+        if case .imageFile(let url, _) = payload { return url }
+        return nil
+    }
+    var storedURL: URL? {
+        switch payload {
+        case .textFile(let url, _), .imageFile(let url, _), .filesFile(let url, _): url
+        default: nil
+        }
+    }
+    var text: String? {
+        switch payload {
+        case .text(let value): value
+        case .textFile(let url, _): try? String(contentsOf: url, encoding: .utf8)
+        default: nil
+        }
+    }
+    var files: [URL]? {
+        switch payload {
+        case .files(let urls): urls
+        case .filesFile(let url, _): (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode([URL].self, from: $0) }
+        default: nil
+        }
+    }
+    var image: NSImage? {
+        switch payload {
+        case .image(let data): NSImage(data: data)
+        case .imageFile(let url, _): NSImage(contentsOf: url)
+        default: nil
         }
     }
     var searchableText: String {
-        if case .text(let text) = payload { return text }
-        return title
+        text ?? title
     }
     var symbol: String {
-        switch payload { case .text: "text.alignleft"; case .image: "photo"; case .files: "doc.on.doc" }
+        switch payload { case .text, .textFile: "text.alignleft"; case .image, .imageFile: "photo"; case .files, .filesFile: "doc.on.doc" }
     }
     var size: Int {
         switch payload {
         case .text(let text): text.utf8.count
+        case .textFile(_, let size), .filesFile(_, let size): size
         case .image(let data): data.count
+        case .imageFile(_, let size): size
         case .files(let urls): urls.reduce(0) { $0 + $1.absoluteString.utf8.count }
         }
     }
+    static let imageDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("MacCore-Clipboard", isDirectory: true)
 }
 
 struct Favorite: Identifiable, Codable {
@@ -129,7 +164,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .island: "capsule"
-        case .overview: PanelTab.overview.symbol
+        case .overview: "waveform.path.ecg"
         case .timer: PanelTab.timer.symbol
         case .files: PanelTab.files.symbol
         case .clipboard: PanelTab.clipboard.symbol
@@ -140,7 +175,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     }
     init(tool: PanelTab) {
         switch tool {
-        case .overview: self = .overview
         case .timer: self = .timer
         case .files: self = .files
         case .clipboard: self = .clipboard
@@ -151,7 +185,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
 
 @MainActor
 final class AppModel: ObservableObject {
-    @Published var tab: PanelTab = .overview
+    @Published var tab: PanelTab = .timer
     @Published var settingsPage: SettingsPage = .general
     @Published var expanded = false
     @Published var dropChoiceActive = false
@@ -163,6 +197,7 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(dotEnabled, forKey: "dotEnabled") }
     }
     @Published var snapshot = SystemSnapshot()
+    let aiUsage = AIUsageStore()
     @Published var countdown = Countdown()
     @Published var remaining: TimeInterval = 25 * 60
     @Published var timerSeconds = 25 * 60
@@ -183,7 +218,24 @@ final class AppModel: ObservableObject {
     @Published var menuBarHeight: CGFloat = 24
     @Published var screenTopInset: CGFloat = 0
     @Published var tray: [TrayFile] = []
-    @Published var clipboard: [ClipboardItem] = []
+    @Published var clipboard: [ClipboardItem] = [] {
+        didSet {
+            if let clipboardDirectory {
+                guard clipboardStorageReady else { return }
+                do {
+                    try FileManager.default.createDirectory(at: clipboardDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+                    try JSONEncoder().encode(clipboard).write(to: clipboardDirectory.appendingPathComponent("index.json"), options: .atomic)
+                } catch {
+                    notify("복사 기록을 저장하지 못했습니다")
+                    return
+                }
+            }
+            let retained = Set(clipboard.compactMap(\.storedURL))
+            for url in Set(oldValue.compactMap(\.storedURL)).subtracting(retained) {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+    }
     @Published var clipboardEnabled = false {
         didSet { clipboardPreferences.set(clipboardEnabled, forKey: "clipboardEnabled") }
     }
@@ -250,7 +302,6 @@ final class AppModel: ObservableObject {
         if tab == .files && dropChoiceActive { return CGSize(width: 296, height: screenTopInset + 136) }
         let fallbackHeight: CGFloat
         switch tab {
-        case .overview: fallbackHeight = 500
         case .timer: fallbackHeight = 372
         case .music: fallbackHeight = 284
         case .files: fallbackHeight = tray.isEmpty ? 300 : 420
@@ -273,17 +324,34 @@ final class AppModel: ObservableObject {
     private var monitoringStarted = false
     private var feedbackActive = true
     private let clipboardPreferences: UserDefaults
+    private let clipboardDirectory: URL?
+    private var clipboardStorageReady = true
     private let screenshotMonitor = ScreenshotMonitor()
     private let notificationMonitor = NotificationMonitor()
     var mediaController: MediaController?
     var musicTrack: TrackInfo.Payload?
 
-    init(startMonitoring: Bool = true, clipboardPreferences: UserDefaults = .standard) {
+    init(startMonitoring: Bool = true, clipboardPreferences: UserDefaults = .standard, clipboardDirectory: URL? = nil) {
         self.clipboardPreferences = clipboardPreferences
+        self.clipboardDirectory = clipboardDirectory ?? (startMonitoring ? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("MacCore/ClipboardHistory", isDirectory: true) : nil)
         clipboardEnabled = clipboardPreferences.bool(forKey: "clipboardEnabled")
         pomodoroFocusMinutes = min(180, max(1, UserDefaults.standard.object(forKey: "pomodoroFocusMinutes") as? Int ?? 25))
         pomodoroBreakMinutes = min(30, max(1, UserDefaults.standard.object(forKey: "pomodoroBreakMinutes") as? Int ?? 5))
         pomodoroSessionCount = min(12, max(1, UserDefaults.standard.object(forKey: "pomodoroSessionCount") as? Int ?? 4))
+        if let directory = self.clipboardDirectory {
+            let index = directory.appendingPathComponent("index.json")
+            if FileManager.default.fileExists(atPath: index.path) {
+                do {
+                    let saved = try JSONDecoder().decode([ClipboardItem].self, from: Data(contentsOf: index))
+                    clipboard = saved.filter { item in
+                        guard let url = item.storedURL, url.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL,
+                              UUID(uuidString: url.lastPathComponent) != nil else { return false }
+                        return FileManager.default.fileExists(atPath: url.path)
+                    }
+                }
+                catch { clipboardStorageReady = false; message = "저장된 복사 기록을 읽지 못했습니다" }
+            }
+        }
         guard startMonitoring else { return }
         fastInputSwitcher.onError = { [weak self] in self?.notify($0) }
         do {
@@ -812,35 +880,68 @@ final class AppModel: ObservableObject {
             excludedApps: excludedApps, types: board.types?.map(\.rawValue) ?? []) else { return }
         if copyFeedbackEnabled { showCopyNotice() }
         guard clipboardEnabled else { return }
+        guard clipboardStorageReady else { notify("저장된 복사 기록을 읽지 못해 기록을 중지했습니다"); return }
         let payload: ClipboardItem.Payload
         if let urls = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
             payload = .files(urls)
-        } else if let data = board.data(forType: .png) ?? board.data(forType: .tiff), data.count <= 5 * 1024 * 1024,
-                  NSImage(data: data) != nil { payload = .image(data) }
+        } else if let data = board.data(forType: .png) ?? board.data(forType: .tiff), data.count <= 5 * 1024 * 1024 {
+            payload = .image(data)
+        }
         else if let text = board.string(forType: .string), !text.isEmpty, text.utf8.count <= 100_000 { payload = .text(text) }
         else { return }
-        let incoming = ClipboardItem(payload: payload)
-        var item = clipboard.first { $0.contentKey == incoming.contentKey && $0.pinned }
+        guard let incoming = ClipboardItem(payload: payload) else { return }
+        let existing = clipboard.first { $0.contentKey == incoming.contentKey && $0.pinned }
             ?? clipboard.first { $0.contentKey == incoming.contentKey }
-            ?? incoming
+        var item = existing ?? incoming
+        if existing == nil {
+            do {
+                let directory = clipboardDirectory ?? ClipboardItem.imageDirectory
+                let data: Data
+                switch item.payload {
+                case .text(let text): data = Data(text.utf8)
+                case .image(let image): data = image
+                case .files(let urls): data = try JSONEncoder().encode(urls)
+                default: return
+                }
+                if clipboardDirectory != nil || item.image != nil {
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+                    let url = directory.appendingPathComponent(UUID().uuidString)
+                    try data.write(to: url, options: .atomic)
+                    switch item.payload {
+                    case .text: item.payload = .textFile(url, data.count)
+                    case .image: item.payload = .imageFile(url, data.count)
+                    case .files: item.payload = .filesFile(url, data.count)
+                    default: break
+                    }
+                }
+            } catch { notify("복사 기록을 저장하지 못했습니다"); return }
+        }
         item.date = Date()
-        clipboard.removeAll { $0.contentKey == incoming.contentKey }
-        clipboard.insert(item, at: 0)
-        clipboard.removeAll { !$0.pinned && $0.date < Date().addingTimeInterval(-7 * 86400) }
-        while clipboard.count > 100 || clipboard.reduce(0, { $0 + $1.size }) > 32 * 1024 * 1024 {
-            guard let index = clipboard.lastIndex(where: { !$0.pinned }) else { break }
-            clipboard.remove(at: index)
+        var updated = clipboard.filter { $0.contentKey != incoming.contentKey }
+        updated.insert(item, at: 0)
+        updated.removeAll { !$0.pinned && $0.date < Date().addingTimeInterval(-7 * 86400) }
+        while updated.count > 100 || updated.reduce(0, { $0 + $1.size }) > 32 * 1024 * 1024 {
+            guard let index = updated.lastIndex(where: { !$0.pinned }) else { break }
+            updated.remove(at: index)
+        }
+        clipboard = updated
+        if existing == nil, let url = item.storedURL, !updated.contains(where: { $0.id == item.id }) {
+            try? FileManager.default.removeItem(at: url)
         }
     }
 
     func copyClipboard(_ item: ClipboardItem) {
         let board = NSPasteboard.general
-        board.clearContents()
         switch item.payload {
-        case .text(let text): board.setString(text, forType: .string)
-        case .image(let data):
-            if let image = NSImage(data: data) { board.writeObjects([image]) }
-        case .files(let urls): board.writeObjects(urls.map { $0 as NSURL })
+        case .text, .textFile:
+            guard let text = item.text else { notify("복사 기록을 읽지 못했습니다"); return }
+            board.clearContents(); board.setString(text, forType: .string)
+        case .image, .imageFile:
+            guard let image = item.image else { notify("복사 기록을 읽지 못했습니다"); return }
+            board.clearContents(); board.writeObjects([image])
+        case .files, .filesFile:
+            guard let urls = item.files else { notify("복사 기록을 읽지 못했습니다"); return }
+            board.clearContents(); board.writeObjects(urls.map { $0 as NSURL })
         }
         lastClipboardChange = board.changeCount
         showCopyNotice()
@@ -878,6 +979,5 @@ final class AppModel: ObservableObject {
         setAwake(false)
         timer?.invalidate()
         timer = nil
-        clipboard.removeAll()
     }
 }

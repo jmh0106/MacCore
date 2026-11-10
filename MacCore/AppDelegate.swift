@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Carbon
+import Sparkle
 
 @main
 enum MacCoreEntry {
@@ -27,6 +28,7 @@ enum MacCoreEntry {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private let updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
     private var model: AppModel!
     var overlay: OverlayController?
     private var statusItem: NSStatusItem!
@@ -140,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
             window.delegate = self
-            window.contentView = NSHostingView(rootView: SettingsView(model: model))
+            window.contentView = NSHostingView(rootView: SettingsView(model: model, updater: updaterController.updater))
             window.setFrameAutosaveName("MacCore.Settings")
             window.center()
             settings = window
@@ -287,6 +289,7 @@ private struct CleaningModeView: View {
     let onClose: () -> Void
     @State private var selectedColor = 0
     private let colors: [Color] = [.black, .white, .red, .green, .blue]
+    private var foreground: Color { mode == .monitor && selectedColor == 1 ? .black : .white }
 
     var body: some View {
         ZStack {
@@ -298,14 +301,14 @@ private struct CleaningModeView: View {
                 Text(mode == .keyboard ? "키보드 청소 모드" : "모니터 청소 모드")
                     .font(.system(size: 20, weight: .semibold))
                 Text(mode == .keyboard ? "키 입력은 잠시 차단됩니다" : "색상을 바꿔가며 화면을 닦으세요")
-                    .font(.system(size: 13)).foregroundStyle(.white.opacity(0.65))
+                    .font(.system(size: 13)).foregroundStyle(foreground.opacity(0.65))
                 Spacer()
                 if mode == .monitor {
                     HStack(spacing: 12) {
                         ForEach(colors.indices, id: \.self) { index in
                             Button { selectedColor = index } label: {
                                 Circle().fill(colors[index]).frame(width: 30, height: 30)
-                                    .overlay(Circle().strokeBorder(.white.opacity(0.7), lineWidth: selectedColor == index ? 2 : 0.5))
+                                    .overlay(Circle().strokeBorder(foreground.opacity(0.7), lineWidth: selectedColor == index ? 2 : 0.5))
                                     .contentShape(Circle())
                             }.buttonStyle(.plain).accessibilityLabel("화면 색상 \(index + 1)")
                         }
@@ -313,14 +316,14 @@ private struct CleaningModeView: View {
                 }
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text("마우스로 완료를 누르세요 · \(max(0, Int(deadline.timeIntervalSince(context.date))))초 후 자동 종료")
-                        .font(.system(size: 12)).foregroundStyle(.white.opacity(0.55)).monospacedDigit()
+                        .font(.system(size: 12)).foregroundStyle(foreground.opacity(0.55)).monospacedDigit()
                 }
                 Button("완료", action: onClose)
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(.black)
-                    .padding(.horizontal, 28).frame(height: 44).background(.white, in: Capsule())
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(mode == .monitor && selectedColor == 1 ? .white : .black)
+                    .padding(.horizontal, 28).frame(height: 44).background(foreground, in: Capsule())
                     .buttonStyle(.plain).padding(.bottom, 26)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(foreground)
             .padding(30)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

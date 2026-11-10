@@ -1,9 +1,11 @@
 import SwiftUI
 import AppKit
 import ServiceManagement
+import Sparkle
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
+    let updater: SPUUpdater
     @State private var loginEnabled = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -30,7 +32,8 @@ struct SettingsView: View {
                     }
                     Section("MacCore 정보") {
                         LabeledContent("지원", value: "M칩 Mac · macOS 14 이상")
-                        LabeledContent("버전", value: "0.1.0 · 개발 버전")
+                        LabeledContent("버전", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "알 수 없음")
+                        Button("업데이트 확인") { updater.checkForUpdates() }
                     }
                 case .island:
                     Section("표시") {
@@ -82,7 +85,7 @@ struct SettingsView: View {
                     }
                     Section("기록") {
                         Toggle("복사 기록 사용", isOn: Binding(get: { model.clipboardEnabled }, set: model.setClipboard))
-                        Text("켜짐 설정은 앱을 다시 열어도 유지됩니다. 기록 내용은 앱을 종료하면 지워지며 화면 잠금 중에는 기록을 멈춥니다.")
+                        Text("복사 기록은 이 Mac에 저장되어 앱을 다시 열어도 유지됩니다. 화면 잠금 중에는 기록을 멈춥니다.")
                             .foregroundStyle(.secondary)
                         Button("복사 기록 전체 삭제", role: .destructive) { model.clipboard.removeAll() }
                             .disabled(model.clipboard.isEmpty)
@@ -107,13 +110,13 @@ struct SettingsView: View {
                         Toggle("알림 배너를 노치에도 표시", isOn: Binding(get: { model.notificationsEnabled }, set: model.setNotifications))
                         Text("손쉬운 사용 권한을 허용한 뒤 켜세요. 새로 표시되는 알림 배너만 읽으며 잠금 중에는 감지를 멈춥니다. 알림 내용은 저장하지 않습니다.")
                             .foregroundStyle(.secondary)
+                        Button("손쉬운 사용 권한 설정 열기", action: NotificationMonitor.openPermissionSettings)
+                        if let error = model.notificationError { Text(error).font(.caption).foregroundStyle(.orange) }
                     }
                     Section("AI 작업 완료") {
                         Toggle("Codex · Claude Code · Antigravity 완료 알림", isOn: $model.aiCompletionNotificationsEnabled)
-                        Text("Codex 데스크톱은 완료 이벤트를 직접 받고, Claude Code와 Antigravity는 macOS 완료 배너를 감지합니다. 후자는 각 도구의 알림을 켜야 합니다. 알림 내용은 저장하지 않습니다.")
+                        Text("각 도구가 macOS에 표시한 알림 배너를 감지합니다. 앱 자체 작업 상태를 직접 읽지는 않으므로 각 도구의 배너 알림과 손쉬운 사용 권한이 필요합니다. 알림 내용은 저장하지 않습니다.")
                             .foregroundStyle(.secondary)
-                        Button("손쉬운 사용 권한 설정 열기", action: NotificationMonitor.openPermissionSettings)
-                        if let error = model.notificationError { Text(error).font(.caption).foregroundStyle(.orange) }
                     }
                     Section("미리보기") {
                         Button("알림 모양 미리보기") {

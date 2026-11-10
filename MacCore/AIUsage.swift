@@ -1,4 +1,38 @@
 import Foundation
+import Combine
+
+@MainActor
+final class AIUsageStore: ObservableObject {
+    @Published var codex: CodexUsageReader.Usage?
+    @Published var codexStatus = "불러오는 중"
+    @Published var antigravity: [AntigravityUsageReader.Quota] = []
+    @Published var antigravityStatus = "불러오는 중"
+    @Published private(set) var isRefreshing = false
+    private var timer: Timer?
+
+    func start() {
+        guard timer == nil else { return }
+        refresh()
+        let timer = Timer(timeInterval: 300, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
+        timer.tolerance = 30
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func refresh() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        Task {
+            defer { isRefreshing = false }
+            do { codex = try await CodexUsageReader.read(); codexStatus = "" }
+            catch { codexStatus = (error as? LocalizedError)?.errorDescription ?? "Codex 사용량을 가져오지 못함" }
+            do { antigravity = try await AntigravityUsageReader.read(); antigravityStatus = "" }
+            catch { antigravityStatus = (error as? LocalizedError)?.errorDescription ?? "Antigravity 사용량을 가져오지 못함" }
+        }
+    }
+}
 
 enum CodexUsageReader {
     struct Limit {
@@ -61,7 +95,7 @@ enum CodexUsageReader {
         }
 
         try send(["method": "initialize", "id": 1, "params": [
-            "clientInfo": ["name": "MacCore", "title": "MacCore", "version": "0.1.0"],
+            "clientInfo": ["name": "MacCore", "title": "MacCore", "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.2.0"],
             "capabilities": ["experimentalApi": true]
         ]], to: input)
         _ = try response(id: 1, from: output)

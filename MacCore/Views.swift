@@ -24,6 +24,7 @@ struct TimerView: View {
     @State private var wheelRemainder: CGFloat = 0
     private let tickSpacing: CGFloat = 12
     private var inProgress: Bool { model.countdown.isRunning || model.remaining < model.countdown.duration }
+    private var timeIsRunning: Bool { model.timerMode == .stopwatch ? model.stopwatchRunning : model.countdown.isRunning }
     var body: some View {
         VStack(spacing: 12) {
             HStack(spacing: 4) {
@@ -41,7 +42,7 @@ struct TimerView: View {
                     .font(.system(size: 48, weight: .light, design: .rounded)).monospacedDigit()
                     .foregroundStyle(.orange)
                     .contentTransition(.numericText(countsDown: model.timerMode != .stopwatch))
-                    .animation(reduceMotion ? nil : .smooth(duration: 0.32), value: displayTime)
+                    .animation(reduceMotion || !timeIsRunning ? nil : .smooth(duration: 0.32), value: displayTime)
                 Text(statusText).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
             }.frame(height: 76)
 
@@ -128,7 +129,9 @@ struct TimerView: View {
                     guard abs(value.translation.width) > abs(value.translation.height) else { return }
                     let start = rulerDragStartMinute ?? rulerMinute ?? max(1, model.timerSeconds / 60)
                     rulerDragStartMinute = start
-                    rulerMinute = min(180, max(1, start + Int((value.translation.width / tickSpacing).rounded())))
+                    let minute = min(180, max(1, start + Int((value.translation.width / tickSpacing).rounded())))
+                    guard rulerMinute != minute else { return }
+                    rulerMinute = minute
                 }.onEnded { _ in
                     rulerDragStartMinute = nil
                 })
@@ -214,8 +217,6 @@ struct TimerView: View {
             wheelRemainder -= CGFloat(steps)
             let minute = min(180, max(1, (rulerMinute ?? model.timerSeconds / 60) + steps))
             rulerMinute = minute
-            if model.timerMode == .pomodoro { model.selectPomodoroFocusMinutes(minute) }
-            else { model.selectTimerSeconds(minute * 60) }
             return nil
         }
     }
@@ -325,7 +326,7 @@ struct FilesView: View {
                 }.frame(height: min(170, max(1, listHeight)))
             }
             HStack {
-                Text("\(model.tray.count)개 보관 중").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text("\(model.tray.count)개 보관 중").font(.system(size: 10)).foregroundStyle(.secondary).padding(.leading, 8)
                 Spacer()
                 Button(action: model.captureScreenshot) {
                     Label("영역 캡처", systemImage: "viewfinder").font(.system(size: 10))
@@ -357,7 +358,7 @@ struct ClipboardView: View {
             Toggle("복사 기록", isOn: Binding(get: { model.clipboardEnabled }, set: model.setClipboard))
                 .toggleStyle(.switch).controlSize(.small)
             if !model.clipboardEnabled {
-                Label("켜진 동안 복사한 내용만 기록합니다.\n기록은 앱을 종료하면 지워집니다.", systemImage: "lock.shield")
+                Label("켜진 동안 복사한 내용만 기록합니다.\n기존 기록은 앱을 다시 열어도 유지됩니다.", systemImage: "lock.shield")
                     .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
             }
             TextField("복사한 내용 검색", text: $search).textFieldStyle(.roundedBorder)
@@ -373,7 +374,7 @@ struct ClipboardView: View {
                             HStack(spacing: 9) {
                                 Button { model.copyClipboard(item) } label: {
                                     HStack(spacing: 10) {
-                                        if case .image(let data) = item.payload, let image = NSImage(data: data) {
+                                        if let image = item.image {
                                             Image(nsImage: image).resizable().scaledToFit()
                                                 .frame(width: 64, height: 48)
                                                 .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
@@ -401,7 +402,7 @@ struct ClipboardView: View {
                 }.frame(height: min(230, max(1, listHeight)))
             }
             HStack {
-                Text("\(model.clipboard.count)개 · 기기 내 메모리 보관").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text("\(model.clipboard.count)개 · 기기 내 보관").font(.system(size: 10)).foregroundStyle(.secondary).padding(.leading, 8)
                 Spacer()
                 Button("전체 삭제", role: .destructive) { model.clipboard.removeAll() }.controlSize(.small).disabled(model.clipboard.isEmpty)
             }
@@ -485,7 +486,6 @@ struct PanelContent: View {
     var body: some View {
         Group {
             switch model.tab {
-            case .overview: CompactSystemView(model: model)
             case .timer: TimerView(model: model)
             case .files: FilesView(model: model)
             case .clipboard: ClipboardView(model: model)
@@ -608,8 +608,7 @@ struct OverlayView: View {
                             }
                         }
                         Group {
-                            if model.tab == .overview { CompactSystemView(model: model) }
-                            else if model.tab == .music { MusicView(model: model, geometry: musicGeometry) }
+                            if model.tab == .music { MusicView(model: model, geometry: musicGeometry) }
                             else { PanelContent(model: model) }
                         }.frame(maxWidth: .infinity, alignment: .top)
                         if let message = model.message {
@@ -617,7 +616,8 @@ struct OverlayView: View {
                         }
 
                     }
-                    .padding(.horizontal, 22).padding(.top, model.screenTopInset + 6).padding(.bottom, 14)
+                    .padding(.horizontal, 22).padding(.top, model.screenTopInset + 6)
+                    .padding(.bottom, model.tab == .files || model.tab == .clipboard ? 10 : 14)
                     .fixedSize(horizontal: false, vertical: true)
                     .onGeometryChange(for: CGFloat.self) { ceil($0.size.height) } action: { measuredHeight in
                         let height = measuredHeight - model.screenTopInset
@@ -836,10 +836,7 @@ private enum MenuPopoverSection: String, CaseIterable, Identifiable {
 }
 
 private struct AIUsageLimitsView: View {
-    @State private var codex: CodexUsageReader.Usage?
-    @State private var codexStatus = "불러오는 중"
-    @State private var antigravity: [AntigravityUsageReader.Quota] = []
-    @State private var antigravityStatus = "불러오는 중"
+    @ObservedObject var usage: AIUsageStore
 
     private var claudeAvailable: Bool {
         ["/Users/\(NSUserName())/.local/bin/claude", "/opt/homebrew/bin/claude", "/usr/local/bin/claude"]
@@ -851,28 +848,28 @@ private struct AIUsageLimitsView: View {
             HStack {
                 Text("남은 구독 한도").font(.system(size: 12, weight: .semibold))
                 Spacer()
-                Button { Task { await refresh() } } label: {
+                Button { usage.refresh() } label: {
                     Image(systemName: "arrow.clockwise").frame(width: 28, height: 28).contentShape(Rectangle())
-                }.buttonStyle(.plain).disabled(false).accessibilityLabel("사용량 새로고침")
+                }.buttonStyle(.plain).disabled(usage.isRefreshing).accessibilityLabel("사용량 새로고침")
             }
             providerCard("Codex", symbol: "circle.hexagongrid.fill", color: .green) {
-                if let codex {
+                if let codex = usage.codex {
                     Text(codex.planName).font(.system(size: 10)).foregroundStyle(.secondary)
                     quotaRow("5시간", limit: codex.primary, color: Color(red: 0.40, green: 0.61, blue: 0.76))
                     if let weekly = codex.weekly { quotaRow("주간", limit: weekly, color: Color(red: 0.60, green: 0.52, blue: 0.70)) }
-                } else { status(codexStatus) }
+                } else { status(usage.codexStatus) }
             }
             providerCard("Claude Code", symbol: "sparkle", color: .orange) {
                 status(claudeAvailable ? "CLI 감지됨 · 구독 한도를 가져올 수 없음" : "이 Mac에서 Claude Code CLI 감지 안 됨")
             }
             providerCard("Antigravity", symbol: "sparkles", color: .cyan) {
-                if antigravity.isEmpty { status(antigravityStatus) }
-                else { ForEach(antigravity) { quotaRow($0.id, limit: CodexUsageReader.Limit(remainingPercent: $0.remainingPercent, resetsAt: $0.resetsAt, windowDurationMinutes: $0.windowDurationMinutes), color: Color(red: 0.40, green: 0.61, blue: 0.76)) } }
+                if usage.antigravity.isEmpty { status(usage.antigravityStatus) }
+                else { ForEach(usage.antigravity) { quotaRow($0.id, limit: CodexUsageReader.Limit(remainingPercent: $0.remainingPercent, resetsAt: $0.resetsAt, windowDurationMinutes: $0.windowDurationMinutes), color: Color(red: 0.40, green: 0.61, blue: 0.76)) } }
             }
             Text("표시는 구독 한도 기준이며 API 사용 금액과는 별도입니다.")
                 .font(.system(size: 9)).foregroundStyle(.secondary)
         }
-        .task { await refresh() }
+        .onAppear { usage.start() }
     }
 
     private func providerCard<Content: View>(_ title: String, symbol: String, color: Color,
@@ -917,14 +914,6 @@ private struct AIUsageLimitsView: View {
         }
     }
 
-    @MainActor private func refresh() async {
-        codexStatus = "불러오는 중"
-        antigravityStatus = "불러오는 중"
-        do { codex = try await CodexUsageReader.read(); codexStatus = "" }
-        catch { codexStatus = (error as? LocalizedError)?.errorDescription ?? "Codex 사용량을 가져오지 못함" }
-        do { antigravity = try await AntigravityUsageReader.read(); antigravityStatus = "" }
-        catch { antigravityStatus = (error as? LocalizedError)?.errorDescription ?? "Antigravity 사용량을 가져오지 못함" }
-    }
 }
 
 struct MenuPopoverView: View {
@@ -940,7 +929,7 @@ struct MenuPopoverView: View {
             }.pickerStyle(.segmented).labelsHidden()
             Group {
                 switch section {
-                case .aiLimits: AIUsageLimitsView()
+                case .aiLimits: AIUsageLimitsView(usage: model.aiUsage)
                 case .computer:
                     VStack(spacing: 12) {
                         CompactSystemView(model: model)
@@ -950,6 +939,9 @@ struct MenuPopoverView: View {
             }.frame(maxWidth: .infinity, alignment: .top)
             Divider()
             HStack {
+                Button { model.settingsPage = .general; model.showSettings() } label: {
+                    Image(systemName: "gearshape").frame(width: 32, height: 30).contentShape(Rectangle())
+                }.help("설정").accessibilityLabel("설정 열기")
                 Spacer()
                 Button { NSApp.terminate(nil) } label: {
                     Image(systemName: "power").frame(width: 32, height: 30).contentShape(Rectangle())

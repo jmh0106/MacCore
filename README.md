@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jmh0106/MacCore/releases/tag/v0.1.0"><strong>MacCore 다운로드</strong></a> ·
+  <a href="https://github.com/jmh0106/MacCore/releases/tag/v0.2.0"><strong>MacCore 다운로드</strong></a> ·
   <a href="#미리보기">미리보기</a> ·
   <a href="#주요-기능">주요 기능</a> ·
   <a href="#설치">설치</a> ·
@@ -85,7 +85,7 @@
 
 **M칩 Mac · macOS 14 이상**을 대상으로 합니다. Intel Mac용 바이너리는 제공하지 않습니다.
 
-현재 **0.1.0 프리뷰**입니다. [Releases에서 DMG를 다운로드](https://github.com/jmh0106/MacCore/releases/tag/v0.1.0)한 뒤, 디스크 이미지를 열고 **MacCore를 Applications 폴더로 끌어 넣으세요**. Xcode 없이 사용할 수 있습니다. 업데이트할 때는 실행 중인 MacCore를 종료한 뒤 기존 앱을 교체하세요.
+현재 **0.2.0 프리뷰**입니다. [Releases에서 DMG를 다운로드](https://github.com/jmh0106/MacCore/releases/tag/v0.2.0)한 뒤, 디스크 이미지를 열고 **MacCore를 Applications 폴더로 끌어 넣으세요**. Xcode 없이 사용할 수 있습니다. 0.2.0부터 설정에서 업데이트를 확인할 수 있습니다.
 
 배포본은 유료 Developer ID 서명·공증을 받지 않았습니다. 처음 실행 시 아래의 macOS 보안 안내를 확인하세요. macOS 14~26에서는 실기기 검증이 더 필요합니다.
 
@@ -133,7 +133,7 @@ SwiftUI + AppKit으로 만들었으며, 최초 빌드 시 [MediaRemoteAdapter](h
 <details>
 <summary><strong>복사한 내용이나 알림은 어디에 저장되나요?</strong></summary>
 
-복사 기록은 이 Mac의 메모리에만 보관하며 **앱을 종료하면 지워집니다**. 화면 잠금 중에는 기록을 멈춥니다. 최대 100개·전체 약 32MB, 개별 이미지 5MB까지 보관합니다. 고정 항목이 한도를 채우면 새 항목이 보관되지 않을 수 있습니다.
+복사 기록은 이 Mac의 앱 데이터 폴더에 저장되며 앱을 다시 열어도 유지됩니다. 화면 잠금 중에는 기록을 멈춥니다. 고정하지 않은 기록은 7일이 지나면 다음 복사 시 정리됩니다. 최대 100개·전체 약 32MB, 개별 이미지 5MB까지 보관하며, 고정 항목이 한도를 채우면 새 항목이 보관되지 않을 수 있습니다.
 
 클립보드의 민감 정보 표시와 제외 앱 목록을 확인하지만 모든 비밀 정보를 자동 판별하지는 못합니다. 다른 앱 알림은 새로 표시되는 배너만 잠시 읽고, 내용이나 이력을 저장하지 않습니다. MacCore 자체 수집 서버는 없습니다.
 

@@ -25,7 +25,7 @@ import MediaRemoteAdapter
         try render(model, directory, "drop-choice")
         model.dropChoiceActive = false
         model.expanded = false
-        model.tab = .overview
+        model.tab = .timer
         model.musicConnected = true
         model.music = MusicState(payload: TrackInfo.Payload(title: "Vancouver", artist: "BIG Naughty (서동현)", isPlaying: true,
             durationMicros: 240_000_000, applicationName: "Design preview"))
@@ -97,16 +97,21 @@ import MediaRemoteAdapter
         let bitmap = fixtureBitmap()
         let png = bitmap.representation(using: .png, properties: [:])!
         let tiff = bitmap.representation(using: .tiff, properties: [:])!
+        assert(ClipboardItem(payload: .image(Data([0, 1, 2]))) == nil,
+               "Undecodable clipboard images must still be rejected")
         board.clearContents()
         board.setData(png, forType: .png)
         model.recordClipboard(from: board, source: "test.editor")
         let imageID = model.clipboard[0].id
+        guard let imageURL = model.clipboard[0].imageURL else { fatalError("Clipboard image should be file-backed") }
+        assert(FileManager.default.fileExists(atPath: imageURL.path), "Clipboard image bytes should be stored outside app memory")
         copyText("between images")
         board.clearContents()
         board.setData(tiff, forType: .tiff)
         model.recordClipboard(from: board, source: "test.editor")
         assert(model.clipboard.count == 2 && model.clipboard[0].id == imageID,
                "The same pixels copied as PNG and TIFF must share a record across intervening copies")
+        assert(model.clipboard[0].imageURL == imageURL, "Deduplicating an image must retain its existing cache file")
         let changedBitmap = fixtureBitmap()
         changedBitmap.bitmapData![0] = 255; changedBitmap.bitmapData![1] = 0; changedBitmap.bitmapData![2] = 0
         let changedPNG = changedBitmap.representation(using: .png, properties: [:])!
@@ -115,8 +120,11 @@ import MediaRemoteAdapter
         board.setData(changedPNG, forType: .png)
         model.recordClipboard(from: board, source: "test.editor")
         assert(model.clipboard.count == 3, "Images that differ by a pixel must stay distinct")
+        guard let changedImageURL = model.clipboard[0].imageURL else { fatalError("Distinct image should also be file-backed") }
 
         model.clipboard.removeAll()
+        assert(!FileManager.default.fileExists(atPath: imageURL.path)
+            && !FileManager.default.fileExists(atPath: changedImageURL.path), "Deleting clipboard history must remove cached image files")
         let fileA = URL(fileURLWithPath: "/tmp/MacCore-clipboard-a.txt")
         let fileB = URL(fileURLWithPath: "/tmp/MacCore-clipboard-b.txt")
         board.clearContents()
